@@ -1,0 +1,189 @@
+function getRandomInt(max) {
+  return Math.floor(Math.random() * max);
+}
+
+function language_sheets() {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var source = ss.getSheetByName("Lista Lingue");
+    for(var i = 1;i<=109;i++) {
+      var sheetName = source.getRange(i,1).getValue();
+      var yourNewSheet = ss.getSheetByName(sheetName);
+      if (yourNewSheet != null) {
+        ss.deleteSheet(yourNewSheet);
+      } else{
+        yourNewSheet = ss.insertSheet(sheetName,ss.getNumSheets());
+
+      }
+    }
+}
+
+function punti()  {
+  source = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Foglio Risposta");
+  giorno = source.getRange("G5").getValue();
+  Logger.log(giorno);
+  totale = source.getRange(7,7).getValue()
+  Logger.log(totale)
+  nuovo_totale = totale+giorno
+  Logger.log(nuovo_totale)
+  source.getRange("G7").setValue(nuovo_totale)
+  source.getRange("G5").setValue(0)
+}
+
+function DEEPL(text, sourceLang, targetLang) {
+  var supported = ["bg", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "id", "it", "ja", "lv", "lt", "pl", "pt", "ro", "ru", "sk", "sl", "es", "sv", "tr"]
+  var source_check = supported.indexOf(sourceLang)
+  var target_check = supported.indexOf(targetLang) 
+  if (text == "") {
+    return "";
+  } else if (source_check == -1 || target_check == -1) {
+    // Fall back to Google Translate if the language is not supported
+    return LanguageApp.translate(text, sourceLang, targetLang);
+  } else {
+    var response = UrlFetchApp.fetch(
+    "https://api-free.deepl.com/v2/translate?auth_key=<YOUR DEEPL KEY>" +
+    "&text=" + encodeURIComponent(text) +
+    "&target_lang=" + targetLang +
+    "&source_lang=" + sourceLang
+  );
+    var json = response.getContentText();
+    var data = JSON.parse(json);
+  
+    return data["translations"][0]["text"];
+  }
+}
+
+function wordsAPI() { 
+  var response = UrlFetchApp.fetch("https://wordsapiv1.p.rapidapi.com/words/?random=true",{
+    method: 'GET',
+	  headers: {
+		  'X-RapidAPI-Key': '<YOUR WORDS API KEY>',
+		  'X-RapidAPI-Host': 'wordsapiv1.p.rapidapi.com'
+    }
+  });
+  r = JSON.parse(response);
+  response = r.word
+  return response;
+
+}
+
+function randomword() {
+  source = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Foglio Risposta");
+  data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Answer Sheet");
+  destination = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Parole Inglese");
+  difficulty = source.getRange("I3").getValue();
+  max = destination.getLastRow();
+  if(difficulty == "hard")  {
+    value = wordsAPI();
+    data.getRange(1,1).setValue(value);
+    return value
+  } else  {
+    value = destination.getRange(getRandomInt(max),1).getValue()
+    data.getRange(1,1).setValue(value);
+    return value
+  }
+  
+}
+
+function translate()  {
+  source = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Foglio Risposta");
+  lang_code_sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Lista Lingue");
+  var language_one = source.getRange("D3").getValue();
+  var language_two = source.getRange("F3:G3").getMergedRanges()[0].getValue();
+  if(language_one == language_two)  {
+    Browser.msgBox("The lingue sono uguali, prova a cambiare una delle due");
+  }
+  for(var i = 1;i<=109;i++) {
+    var index  = lang_code_sheet.getRange(i,1).getValue();
+    if(index == language_one) {
+      var first_lang_code = lang_code_sheet.getRange(i,2).getValue();
+      break;
+    }
+  }
+  if(first_lang_code != "en") {
+    var first_translation = DEEPL(randomword(),"en",first_lang_code);
+  } else  {
+    var first_translation = randomword()
+  }
+
+  source.getRange("D5").setValue(first_translation);
+  var test = source.getRange("D5").getValue();
+  Logger.log(test)
+  source.getRange("G9").setValue(0)
+  clear()
+}
+
+function check()  {
+  destination = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Foglio Risposta");
+  lang_code_sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Lista Lingue");
+  data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Answer Sheet");
+  language_two = destination.getRange("F3:G3").getMergedRanges()[0].getValue();
+  var input = destination.getRange("D7").getValue();
+  var word = data.getRange(1,1).getValue();
+  var attempts = destination.getRange("G9").getValue(); 
+
+  for(var counter = 1; counter<= 109;counter++) {
+    index_two = lang_code_sheet.getRange(counter,1).getValue();
+    if(index_two == language_two) {
+      sec_lang_code = lang_code_sheet.getRange(counter,2).getValue();
+      break;
+    }
+  }
+
+  var input = destination.getRange("D7").getValue();
+  var word = data.getRange(1,1).getValue();
+
+  if(sec_lang_code != "en") {
+    var value = DEEPL(word,"en",sec_lang_code);
+  } else  {
+    var value = word;
+  }
+
+  if(input == value)  {
+
+    destination.getRange("G5").setValue(destination.getRange("G5").getValue()+1);
+    destination.getRange("D7").setValue("");
+    destination.getRange("G9").setValue(0)
+    destination.getRange("D9").setValue(value)
+    clear()
+    translate()
+
+  } if(input != value)  {
+
+    destination.getRange("G9").setValue(destination.getRange("G9").getValue()+1)
+    clear();
+
+  } if(attempts == 2) {
+
+      destination.getRange("G9").setValue(0)
+      destination.getRange("D7").setValue("");
+      destination.getRange("D9").setValue(value);
+      clear()
+      translate()
+
+  }
+}
+
+function scambio()  {
+  source = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Foglio Risposta");
+  store = source.getRange("D3").getValue();
+  source.getRange("F3:G3").getMergedRanges()[0].copyTo(source.getRange("D3"), {contentsOnly:true});
+  source.getRange("F3:G3").setValue(store);
+  clear()
+  translate()
+}
+
+function event(e) {
+  var event = e.range.getA1Notation();
+  if(event == "D3") {
+    translate();
+  } if(event == "D7") {
+    check();
+  } if(event == "I3") {
+    translate()
+  }
+}
+
+function clear()  {
+  clearsheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Foglio Risposta");
+  clearsheet.getRange("D7").setValue("")
+}
